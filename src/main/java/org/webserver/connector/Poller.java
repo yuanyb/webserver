@@ -5,13 +5,10 @@ import org.webserver.constant.ServerConfig;
 import java.io.IOException;
 import java.nio.channels.*;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Logger;
 
 /**
@@ -23,7 +20,7 @@ public class Poller implements Runnable {
 
     private Selector selector;
     private String pollerName;
-    private Connector connector;
+    private Server server;
     private Set<SocketWrapper> clients;
     /**
      * 事件队列：每当接收到新的连接时，将获得的 SocketChannel 对象
@@ -33,10 +30,10 @@ public class Poller implements Runnable {
     private Queue<PollerEvent> pollerEventQueue;
 
 
-    Poller(String pollerName, Connector connector) throws IOException {
+    Poller(String pollerName, Server server) throws IOException {
         this.selector = Selector.open();
         this.pollerName = pollerName;
-        this.connector = connector;
+        this.server = server;
         this.pollerEventQueue = new ConcurrentLinkedQueue<>();
         this.clients = ConcurrentHashMap.newKeySet();
     }
@@ -44,7 +41,7 @@ public class Poller implements Runnable {
     @Override
     public void run() {
         logger.info(String.format("%s 开始轮询客户端连接", this.pollerName));
-        while (connector.isRunning()) {
+        while (server.isRunning()) {
             try {
                 // 监听事件队列中的连接
                 handleEvents();
@@ -67,7 +64,8 @@ public class Poller implements Runnable {
                         logger.info(String.format("[%s] 读就绪，开始读取", ((SocketChannel)key.channel()).getRemoteAddress()));
                         SocketWrapper socketWrapper = (SocketWrapper) key.attachment();
                         socketWrapper.setLastCommutationTime(System.currentTimeMillis()); // 更新状态
-                        connector.processClient(socketWrapper);
+                        cancelReadListening(socketWrapper); // 取消读事件的监听
+                        server.processClient(socketWrapper);
                     }
                 }
             } catch (IOException e) {
@@ -90,6 +88,14 @@ public class Poller implements Runnable {
     }
 
     /**
+     * 取消某个Socket的读事件在selector上的注册，因为将请求处理器放入线程池中后，
+     * 会导致当前socket被多个线程读取数据
+     */
+    void cancelReadListening(SocketWrapper socketWrapper) {
+        socketWrapper.getClient().keyFor(selector).cancel();
+    }
+
+    /**
      * 将事件队列中的事件注册到 selector 中
      */
     private void handleEvents() {
@@ -109,15 +115,16 @@ public class Poller implements Runnable {
             // 断开连接
             if (!client.getClient().isConnected()) {
                 logger.info(String.format("%s 轮询的客户端[%s]已断开连接，取消监听"));
-                client.getClient().keyFor(selector).cancel();
-                clients.remove(client);
+                try {
+                    client.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
                 selector.wakeup();
                 iter.remove();
             } else if (System.currentTimeMillis() - client.getLastCommutationTime() > expiryTime) {
                 logger.info(String.format("%s 轮询的客户端[%s]的连接过期，断开连接", getPollerName(), client));
                 // 连接过期
-                client.getClient().keyFor(selector).cancel(); // 取消监听
-                clients.remove(client);
                 try {
                     client.close();
                 } catch (IOException e) {

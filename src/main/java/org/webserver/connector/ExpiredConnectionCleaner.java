@@ -12,9 +12,9 @@ import java.util.logging.Logger;
  * 清除长时间没有数据交换的HTTP连接，用于支持HTTP默认的长连接
  */
 public class ExpiredConnectionCleaner {
-    private final Logger logger = Logger.getLogger(ExpiredConnectionCleaner.class.getPackageName());
+    private static final Logger logger = Logger.getLogger(ExpiredConnectionCleaner.class.getPackageName());
     /** 清理过期连接线程的周期 */
-    private final static long CLEANING_CYCLE = Long.parseLong(System.getProperty(ServerConfig.CLEANING_CYCLE));
+    private static final long CLEANING_CYCLE = Long.parseLong(System.getProperty(ServerConfig.CONNECTION_CLEANING_CYCLE));
     private List<Poller> pollers;
 
     private ScheduledExecutorService cleaner;

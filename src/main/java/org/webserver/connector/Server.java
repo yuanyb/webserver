@@ -1,8 +1,12 @@
 package org.webserver.connector;
 
 import org.webserver.constant.ServerConfig;
+import org.webserver.http.request.Cookie;
+import org.webserver.http.response.HttpResponse;
+import org.webserver.http.response.HttpStatus;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
@@ -10,15 +14,14 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 /**
  * 开启socket并监听客户端的请求
  */
-public class Connector {
-    private static final Logger logger = Logger.getLogger(Connector.class.getPackageName());
+public class Server {
+    private static final Logger logger = Logger.getLogger(Server.class.getPackageName());
     private final int pollerThreadCount = Integer.parseInt(System.getProperty(ServerConfig.POLLER_THREAD_COUNT)); // Tomcat: Math.min(2, Runtime.getRuntime().availableProcessors());;
     private ServerSocketChannel server;
     private Acceptor acceptor; // 接收客户端连接
@@ -76,7 +79,7 @@ public class Connector {
     }
 
     private void initExpiredConnectionCleaner() {
-        logger.info(String.format("启动过期连接清理器，周期（%s）", System.getProperty(ServerConfig.CLEANING_CYCLE)));
+        logger.info(String.format("启动过期连接清理器，周期（%s）", System.getProperty(ServerConfig.CONNECTION_CLEANING_CYCLE)));
         this.cleaner = new ExpiredConnectionCleaner(pollers);
         this.cleaner.start();
     }
@@ -107,36 +110,43 @@ public class Connector {
      * @param socketWrapper
      */
     public void processClient(SocketWrapper socketWrapper) {
-        ByteBuffer buffer = ByteBuffer.allocate(1024);
-        SocketChannel client = socketWrapper.getClient();
-        try {
-            int len;
-            while (true) {
-                len = client.read(buffer);
-                if (len == 0)
-                    break;
-                if (len == -1) { // 当客户端主动关闭连接时，必须取消它的监听，否则会死循环
-                    socketWrapper.close();
-                    return;
-                }
-                buffer.flip();
-                System.out.println(Charset.defaultCharset().decode(buffer));
-                buffer.clear();
-            }
-            buffer.put("HTTP/1.1 200 FUCK\r\nContent-Type:text/html\r\n\r\naaa".getBytes());
-            buffer.flip();
-            client.write(buffer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+//        ByteBuffer buffer = ByteBuffer.allocate(1024);
+//        SocketChannel client = socketWrapper.getClient();
+//        try {
+//            int len;
+//            while (true) {
+//                len = client.read(buffer);
+//                if (len == 0)
+//                    break;
+//                if (len == -1) { // 当客户端主动关闭连接时，必须取消它的监听，否则会死循环
+//                    socketWrapper.close();
+//                    return;
+//                }
+//                buffer.flip();
+//                System.out.println(Charset.defaultCharset().decode(buffer));
+//                buffer.clear();
+//            }
+//            HttpResponse response = new HttpResponse();
+//            response.setContent("hello!!!".getBytes());
+//            response.addHeader("Server", "XXX");
+//            response.setContentType("text/html");
+//            Cookie cookie = new Cookie("ccc", "bbb");
+//            cookie.setMaxAge(3600 * 24 * 10);
+//            response.addCookie(cookie);
+//            response.setStatus(HttpStatus.SC_200);
+//            ByteBuffer[] bf = response.getResponseData();
+//            client.write(bf);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
     }
 
     public static void main(String[] args) throws InterruptedException {
         System.setProperty(ServerConfig.POLLER_THREAD_COUNT, "2");
         System.setProperty(ServerConfig.CONNECTION_EXPIRY_TIME, "1000");
-        System.setProperty(ServerConfig.CLEANING_CYCLE, "10000");
+        System.setProperty(ServerConfig.CONNECTION_CLEANING_CYCLE, "10000");
         System.setProperty(ServerConfig.PORT, "80");
-        new Connector().start(Integer.parseInt(System.getProperty(ServerConfig.PORT)));
+        new Server().start(Integer.parseInt(System.getProperty(ServerConfig.PORT)));
         Thread.sleep(500000);
     }
 

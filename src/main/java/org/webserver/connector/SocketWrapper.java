@@ -15,11 +15,10 @@ public class SocketWrapper {
         this.client = client;
         this.poller = poller;
         this.lastCommutationTime = System.currentTimeMillis();
-
     }
 
     void close() throws IOException {
-        client.keyFor(poller.getSelector()).cancel(); // 取消监听该连接
+        poller.cancelReadListening(this); // 取消监听该连接
         poller.getClients().remove(this);
         client.close(); // 关闭连接
     }
