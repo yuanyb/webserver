@@ -1,5 +1,4 @@
-package org.webserver.container.annotations;
-
+package org.webserver.container.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -7,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.PARAMETER})
-public @interface RequestParam {
+@Target(ElementType.PARAMETER)
+public @interface CookieValue {
     String value();
 }

@@ -2,17 +2,16 @@ package org.webserver.http.request;
 
 import org.webserver.connector.SocketWrapper;
 import org.webserver.constant.HttpConstant;
+import org.webserver.container.Container;
+import org.webserver.http.Cookie;
 import org.webserver.http.HttpMethod;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.net.URLDecoder;
-import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class HttpRequestParser {
-    public static HttpRequest parseRequest(SocketWrapper socketWrapper) {
+    public static HttpRequest parseRequest(SocketWrapper socketWrapper, Container container) {
         // 应该逐字节判断？长连接需要根据Content-Length，判断请求结束，为了方便就用Scanner了
         HttpRequest httpRequest = new HttpRequest();
         Scanner in = new Scanner(socketWrapper.getClient());
@@ -20,6 +19,7 @@ public class HttpRequestParser {
         parseParams(in, httpRequest);
         parseHeaders(in, httpRequest);
         parseCookies(in, httpRequest);
+        parseSession(container, httpRequest);
         parseBody(in, httpRequest);
         return httpRequest;
     }
@@ -67,6 +67,20 @@ public class HttpRequestParser {
         }
         httpRequest.setCookies(cookies);
     }
+
+    private static void parseSession(Container container, HttpRequest request) {
+        Cookie jsessionid = request.getCookie(HttpConstant.JSESSIONID);
+        if (jsessionid != null) {
+            if (container.getSession(jsessionid.getValue()) != null) { // session没被销毁
+                request.setSession(container.getSession(jsessionid.getValue()));
+            } else { // 被销毁了，重新创建
+                request.setSession(container.createNewSession());
+            }
+        } else { // 无则创建
+            request.setSession(container.createNewSession());
+        }
+    }
+
 
     private static void parseBody(Scanner in, HttpRequest httpRequest) {
         if (!httpRequest.getMethod().equals(HttpMethod.POST))

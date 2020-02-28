@@ -3,7 +3,8 @@ package org.webserver.http;
 public enum HttpMethod {
     HEAD("HEAD"),
     GET("GET"),
-    POST("POST");
+    POST("POST"),
+    ANY("ANY");
 
     private String name;
 
@@ -17,8 +18,10 @@ public enum HttpMethod {
                 return HEAD;
             case "POST":
                 return POST;
-            default:
+            case "GET":
                 return GET;
+            default:
+                return ANY;
         }
     }
 

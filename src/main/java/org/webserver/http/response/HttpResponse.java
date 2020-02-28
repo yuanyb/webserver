@@ -1,18 +1,11 @@
 package org.webserver.http.response;
 
 import org.webserver.constant.HttpConstant;
-import org.webserver.http.request.Cookie;
+import org.webserver.http.Cookie;
 
-import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.OpenOption;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.FileAttribute;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -22,11 +15,11 @@ public class HttpResponse {
     private Map<String, String> headers;
     private List<Cookie> cookies;
     private ByteArrayOutputStream content;
-    private String responsePath; // 要去哪个路径渲染
 
     public HttpResponse() {
         this.headers = new HashMap<>();
         this.cookies = new ArrayList<>();
+        this.content = new ByteArrayOutputStream();
     }
 
     public void addCookie(Cookie cookie) {
@@ -39,6 +32,10 @@ public class HttpResponse {
 
     public void setStatus(HttpStatus status) {
         this.status = status;
+    }
+
+    public HttpStatus getStatus() {
+        return status;
     }
 
     public void setContentType(String contentType) {
@@ -81,19 +78,13 @@ public class HttpResponse {
         this.status = HttpStatus.SC_302;
     }
 
-    public String getResponsePath() {
-        return this.responsePath;
-    }
-
-    public void setResponsePath(String path) {
-        this.responsePath = path;
-    }
-
     /**
      * ByteBuffer - Scatter/Gather
      */
     public ByteBuffer[] getResponseData() {
-        return new ByteBuffer[] {buildHeader(), ByteBuffer.wrap(content.toByteArray())};
+        byte[] bytes = content.toByteArray();
+        this.headers.put(HttpConstant.CONTENT_LENGTH, bytes.length + "");
+        return new ByteBuffer[] {buildHeader(), ByteBuffer.wrap(bytes)};
     }
 
     private ByteBuffer buildHeader() {
@@ -134,16 +125,5 @@ public class HttpResponse {
 
     public OutputStream getOutputStream() {
         return content;
-    }
-
-    public static void main(String[] args) throws IOException {
-        HttpResponse response = new HttpResponse();
-//        response.setContent("hello!!!".getBytes());
-        response.addHeader("Server", "XXX");
-        response.setContentType("text/html");
-        response.addCookie(new Cookie("ca", "cv"));
-        response.addCookie(new Cookie("cb", "cv"));
-        response.setStatus(HttpStatus.SC_200);
-        ByteBuffer[] buffer = response.getResponseData();
     }
 }

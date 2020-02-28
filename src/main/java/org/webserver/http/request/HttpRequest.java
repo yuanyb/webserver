@@ -1,13 +1,10 @@
 package org.webserver.http.request;
 
-import org.webserver.connector.SocketWrapper;
 import org.webserver.constant.HttpConstant;
+import org.webserver.http.Cookie;
 import org.webserver.http.HttpMethod;
 import org.webserver.http.session.HttpSession;
 
-import java.io.ByteArrayInputStream;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class HttpRequest {
@@ -18,20 +15,20 @@ public class HttpRequest {
 //    private byte[] content;
     private Map<String, Cookie> cookies;
     private HttpSession session;
-    private Map<String, Object> attributes;
+    private Map<String, Object> attributes = new HashMap<>();
 
     public HttpRequest() {
     }
 
     public HttpSession getSession() {
-        return null;
+        return this.session;
     }
 
     public Object getAttribute(String key) {
         return this.attributes.get(key);
     }
 
-    public Object setAttributes(String key, Object value) {
+    public Object setAttribute(String key, Object value) {
         return this.attributes.put(key, value);
     }
 
@@ -39,18 +36,9 @@ public class HttpRequest {
         return this.URI;
     }
 
-    void setRequestURI(String URI) {
-        this.URI = URI;
-    }
-
     public HttpMethod getMethod() {
         return method;
     }
-
-    void setMethod(HttpMethod method) {
-        this.method = method;
-    }
-
 
     public Cookie getCookie(String key) {
         return this.cookies.get(key);
@@ -77,13 +65,27 @@ public class HttpRequest {
     }
 
 
-    // HttpRequestParser 使用，包私有
+    // ******** HttpRequestParser 使用，包私有 ********
+    void setMethod(HttpMethod method) {
+        this.method = method;
+    }
+
+    void setRequestURI(String URI) {
+        this.URI = URI;
+    }
+
     void setParams(Map<String, List<String>> params) {
         this.params = params;
     }
 
     void setHeaders(Map<String, String> headers) {
         this.headers = headers;
+    }
+
+    void setSession(HttpSession session) {
+        this.session = session;
+        this.cookies.remove(HttpConstant.JSESSIONID); // 移除无效session id（如果有的话）
+        this.cookies.put(HttpConstant.JSESSIONID, new Cookie(HttpConstant.JSESSIONID, session.getID()));
     }
 
     void setCookies(Map<String, Cookie> cookies) {

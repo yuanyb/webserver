@@ -1,6 +1,7 @@
-package org.webserver.container.annotations;
+package org.webserver.container.annotation;
 
-import java.beans.JavaBean;
+import org.webserver.http.HttpMethod;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -13,5 +14,5 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD, ElementType.TYPE})
 public @interface RequestMapping {
     String value();
-    String method();
+    HttpMethod method() default HttpMethod.ANY;
 }

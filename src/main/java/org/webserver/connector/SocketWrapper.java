@@ -19,7 +19,7 @@ public class SocketWrapper {
 
     void close() throws IOException {
         poller.cancelReadListening(this); // 取消监听该连接
-        poller.getClients().remove(this);
+        poller.getClients().remove(this.getClient());
         client.close(); // 关闭连接
     }
 
@@ -33,6 +33,10 @@ public class SocketWrapper {
 
     public SocketChannel getClient() {
         return client;
+    }
+
+    public Poller getPoller() {
+        return poller;
     }
 
     @Override

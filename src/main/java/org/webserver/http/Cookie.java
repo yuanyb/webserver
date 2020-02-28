@@ -1,4 +1,4 @@
-package org.webserver.http.request;
+package org.webserver.http;
 
 public class Cookie {
     private final String name;

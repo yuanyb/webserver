@@ -1,15 +1,22 @@
 package org.webserver.http.session;
 
+import org.webserver.constant.HttpConstant;
+import org.webserver.container.Container;
+
 import java.util.Map;
+import java.util.UUID;
 
 public class HttpSession {
     private String sessionID;
     private Map<String, Object> attributes;
     private long creationTime;
     private long lastAccessedTime;
+    private Container container;
 
-    public HttpSession() {
-        lastAccessedTime = this.creationTime = System.currentTimeMillis();
+    public HttpSession(Container container) {
+        this.sessionID = UUID.randomUUID().toString();
+        this.lastAccessedTime = this.creationTime = System.currentTimeMillis();
+        this.container = container;
     }
 
     public Object getAttribute(String key) {
@@ -26,7 +33,7 @@ public class HttpSession {
 
     public void invalidate() {
         this.attributes = null;
-        // todo 清除session
+        container.invalidateSession(this); // 从容器中删除自己
     }
 
     public String getID() {

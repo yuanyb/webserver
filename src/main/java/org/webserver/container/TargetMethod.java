@@ -1,15 +1,20 @@
 package org.webserver.container;
 
-import org.webserver.container.annotations.CookieValue;
-import org.webserver.container.annotations.RequestHeader;
-import org.webserver.container.annotations.RequestParam;
+import org.webserver.constant.TemplateConstant;
+import org.webserver.container.annotation.CookieValue;
+import org.webserver.container.annotation.RequestHeader;
+import org.webserver.container.annotation.RequestParam;
 import org.webserver.exception.InternalServerException;
+import org.webserver.exception.TemplateParseException;
+import org.webserver.http.HttpMethod;
 import org.webserver.http.request.HttpRequest;
 import org.webserver.http.response.HttpResponse;
 import org.webserver.http.response.HttpStatus;
 import org.webserver.http.session.HttpSession;
+import org.webserver.template.TemplateParser;
 import org.webserver.util.ErrorResponseUtil;
 import org.webserver.util.ReflectUtil;
+import org.webserver.util.StringUtil;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -17,18 +22,27 @@ import java.lang.reflect.Parameter;
 import java.util.logging.Logger;
 
 /**
- * 请求对应的目标处理方法
+ * HTTP请求映射的控制器里的处理方法
  */
 public class TargetMethod {
     private static final Logger logger = Logger.getLogger(TargetMethod.class.getPackageName());
     private final String methodDescriptor; // 方法描述符，用于异常定位
+
+    private final Object controller; // 所属的控制器
     private final Method method; // 对应的处理方法
     private final Parameter[] parameters;
+    private final HttpMethod httpMethodType;
 
-    TargetMethod(Method method) {
+    TargetMethod(Object controller, Method method, HttpMethod httpMethodType) {
+        this.controller = controller;
         this.method = method;
         this.parameters = method.getParameters();
         this.methodDescriptor = method.getDeclaringClass().getName()  + "#" + method.getName();
+        this.httpMethodType = httpMethodType;
+    }
+
+    HttpMethod getHttpMethodType() {
+        return httpMethodType;
     }
 
     /**
@@ -38,13 +52,21 @@ public class TargetMethod {
      */
     public HttpResponse invoke(HttpRequest request) {
         HttpResponse response = new HttpResponse();
+        response.setStatus(HttpStatus.SC_200);
         try {
             // 返回值为 String，表示渲染的页面路径
-            String path = (String)method.invoke(request, buildParameters(request, response));
-            response.setResponsePath(path);
+            String path = (String)method.invoke(controller, buildParameters(request, response));
+            // 渲染
+            TemplateParser.parse(request, response, path);
+
         } catch (InternalServerException e) {
             logger.severe(e.getMessage());
             ErrorResponseUtil.renderErrorResponse(response, HttpStatus.SC_500, e.getMessage());
+            e.printStackTrace();
+        } catch (TemplateParseException e) {
+            logger.severe("模板解析错误" + e.getMessage());
+            ErrorResponseUtil.renderErrorResponse(response, HttpStatus.SC_500, "模板解析错误：" + e.getMessage());
+            e.printStackTrace();
         } catch (Exception ignore) {
         }
         return response;
@@ -106,8 +128,7 @@ public class TargetMethod {
                 if (request.getParameter(field.getName()) == null) {
                     continue;
                 }
-                String setterName = "set" + Character.toUpperCase(field.getName().charAt(0))
-                        + field.getName().substring(1);
+                String setterName = StringUtil.setterName(field.getName());
                 Method method = type.getMethod(setterName, field.getType());
                 // 简单实现，仅支持集中简单的类型
                 method.invoke(bean, cast(request.getParameter(field.getName()), field.getType()));
@@ -140,5 +161,9 @@ public class TargetMethod {
         } catch (Exception e) {
             throw e;
         }
+    }
+
+    String getMethodDescriptor() {
+        return this.methodDescriptor;
     }
 }

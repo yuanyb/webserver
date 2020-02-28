@@ -6,8 +6,6 @@ package org.webserver.constant;
 public class ServerConfig {
     /** 监听端口 */
     public static final String PORT = "PORT";
-    /** Web 应用根目录 */
-    public static final String WEBAPP_ROOT_PATH = "WEBAPP_ROOT_PATH";
     /** 日志文件保存目录 */
     public static final String LOG_FILE_STORAGE_PATH = "LOG_FILE_STORAGE_PATH";
     /** 毫秒 */
@@ -17,7 +15,7 @@ public class ServerConfig {
     /** 毫秒 */
     public static final String SESSION_CLEANING_CYCLE = "SESSION_CLEANING_CYCLE";
     /** 毫秒 */
-    public static final String SESSION_EXPIRY_CYCLE = "SESSION_EXPIRY_CYCLE";
+    public static final String SESSION_EXPIRY_TIME = "SESSION_EXPIRY_TIME";
     /** 轮询线程池大小 */
     public static final String POLLER_THREAD_COUNT = "POLLER_THREAD_COUNT";
     /** 请求处理器线程池大小 */

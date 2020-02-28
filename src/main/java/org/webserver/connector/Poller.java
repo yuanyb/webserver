@@ -5,6 +5,7 @@ import org.webserver.constant.ServerConfig;
 import java.io.IOException;
 import java.nio.channels.*;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,7 +22,7 @@ public class Poller implements Runnable {
     private Selector selector;
     private String pollerName;
     private Server server;
-    private Set<SocketWrapper> clients;
+    private Map<SocketChannel, SocketWrapper> clients; // 保存客户端socket，SocketWrapper 在处理后的连接重新注册时使用
     /**
      * 事件队列：每当接收到新的连接时，将获得的 SocketChannel 对象
      * 封装后注册到 Poller 的事件队列。
@@ -35,7 +36,7 @@ public class Poller implements Runnable {
         this.pollerName = pollerName;
         this.server = server;
         this.pollerEventQueue = new ConcurrentLinkedQueue<>();
-        this.clients = ConcurrentHashMap.newKeySet();
+        this.clients = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -64,6 +65,7 @@ public class Poller implements Runnable {
                         logger.info(String.format("[%s] 读就绪，开始读取", ((SocketChannel)key.channel()).getRemoteAddress()));
                         SocketWrapper socketWrapper = (SocketWrapper) key.attachment();
                         socketWrapper.setLastCommutationTime(System.currentTimeMillis()); // 更新状态
+
                         cancelReadListening(socketWrapper); // 取消读事件的监听
                         server.processClient(socketWrapper);
                     }
@@ -77,12 +79,18 @@ public class Poller implements Runnable {
 
     /**
      * 向轮询线程注册一个连接
+     * @param isNew 用于判断是初次向Poller注册，还是处理完后又注册了监听事件
      */
-    void register(SocketChannel client) {
-        logger.info(String.format("新的连接被注册到 %s 的 PollerEvent 事件队列中", this.pollerName));
-        SocketWrapper socketWrapper = new SocketWrapper(client, this);
+    void register(SocketChannel client, boolean isNew) {
+        SocketWrapper socketWrapper;
+        if (isNew) {
+            logger.info(String.format("新的连接被注册到 %s 的 PollerEvent 事件队列中", this.pollerName));
+            socketWrapper = new SocketWrapper(client, this);
+            clients.put(client, socketWrapper);
+        } else {
+            socketWrapper = clients.get(client);
+        }
         pollerEventQueue.offer(new PollerEvent(socketWrapper));
-        clients.add(socketWrapper);
         // 唤醒轮询线程（调用select()阻塞的话），更新监听状态
         selector.wakeup();
     }
@@ -94,6 +102,15 @@ public class Poller implements Runnable {
     void cancelReadListening(SocketWrapper socketWrapper) {
         socketWrapper.getClient().keyFor(selector).cancel();
     }
+
+    void enableReadListening(SocketWrapper socketWrapper) {
+        try {
+            socketWrapper.getClient().register(selector, SelectionKey.OP_READ);
+        } catch (Exception ignore) {
+            // selector 已关闭，服务器结束运行了
+        }
+    }
+
 
     /**
      * 将事件队列中的事件注册到 selector 中
@@ -110,11 +127,11 @@ public class Poller implements Runnable {
      * 清理过期（长时间未通信）的 HTTP 长连接
      */
     void clearExpiredConnection() {
-        for (Iterator<SocketWrapper> iter = clients.iterator(); iter.hasNext(); ) {
-            SocketWrapper client = iter.next();
+        for (Iterator<Map.Entry<SocketChannel, SocketWrapper>> iter = clients.entrySet().iterator(); iter.hasNext(); ) {
+            SocketWrapper client = iter.next().getValue();
             // 断开连接
             if (!client.getClient().isConnected()) {
-                logger.info(String.format("%s 轮询的客户端[%s]已断开连接，取消监听"));
+                logger.info(String.format("%s 轮询的客户端[%s]已断开连接，取消监听", this.pollerName, client.getClient().toString()));
                 try {
                     client.close();
                 } catch (IOException e) {
@@ -140,7 +157,7 @@ public class Poller implements Runnable {
      * 关闭轮询线程，并关闭所有连接
      */
     void close() throws IOException {
-        for (SocketWrapper client : clients) {
+        for (SocketWrapper client : clients.values()) {
             client.close();
         }
         selector.close();
@@ -154,7 +171,7 @@ public class Poller implements Runnable {
         return this.pollerName;
     }
 
-    Set<SocketWrapper> getClients() {
+    Map<SocketChannel, SocketWrapper> getClients() {
         return clients;
     }
 
@@ -177,7 +194,7 @@ public class Poller implements Runnable {
                 }
             } catch (ClosedChannelException e) {
                 e.printStackTrace();
-                logger.info(String.format("%s 监听新连接失败[%s]", Poller.this.pollerName, e.getMessage()));
+                logger.info(String.format("%s 监听连接失败[%s]", Poller.this.pollerName, e.getMessage()));
             } catch (IOException ignore) {
             }
         }

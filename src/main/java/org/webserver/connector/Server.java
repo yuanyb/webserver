@@ -1,17 +1,14 @@
 package org.webserver.connector;
 
 import org.webserver.constant.ServerConfig;
-import org.webserver.http.request.Cookie;
-import org.webserver.http.response.HttpResponse;
-import org.webserver.http.response.HttpStatus;
+import org.webserver.container.Container;
+import org.webserver.exception.InternalServerException;
+import org.webserver.http.session.ExpiredSessionCleaner;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -23,13 +20,17 @@ import java.util.logging.Logger;
 public class Server {
     private static final Logger logger = Logger.getLogger(Server.class.getPackageName());
     private final int pollerThreadCount = Integer.parseInt(System.getProperty(ServerConfig.POLLER_THREAD_COUNT)); // Tomcat: Math.min(2, Runtime.getRuntime().availableProcessors());;
+
+    private Container container;
+    private RequestProcessor requestProcessor;
     private ServerSocketChannel server;
     private Acceptor acceptor; // 接收客户端连接
-    private volatile boolean isRunning = true;
     private volatile int port;
+    private volatile boolean isRunning = true;
+
     private List<Poller> pollers;
     private final AtomicInteger nextPollerIndex = new AtomicInteger(0);
-    private ExpiredConnectionCleaner cleaner;
+    private ExpiredConnectionCleaner connectionCleaner;
 
     public void start(int port) {
         this.port = port;
@@ -43,8 +44,14 @@ public class Server {
             initPollers();
             // 初始化过期连接清理器
             initExpiredConnectionCleaner();
-
-        } catch (IOException e) {
+            // 初始化过期Session清理器
+            initContainer();
+            // 初始化请求处理器
+            initRequestProcessor();
+            logger.info("服务启动成功");
+        } catch (IOException | InternalServerException e) {
+            logger.info("服务器启动失败：" + e.getMessage());
+            this.isRunning = false;
             e.printStackTrace();
         }
     }
@@ -80,8 +87,19 @@ public class Server {
 
     private void initExpiredConnectionCleaner() {
         logger.info(String.format("启动过期连接清理器，周期（%s）", System.getProperty(ServerConfig.CONNECTION_CLEANING_CYCLE)));
-        this.cleaner = new ExpiredConnectionCleaner(pollers);
-        this.cleaner.start();
+        this.connectionCleaner = new ExpiredConnectionCleaner(pollers);
+        this.connectionCleaner.start();
+    }
+
+    private void initContainer() throws InternalServerException {
+        logger.info("启动容器");
+        this.container = new Container();
+        this.container.init();
+    }
+
+    private void initRequestProcessor() {
+        logger.info("初始化请求处理器");
+        this.requestProcessor = new RequestProcessor(this.container);
     }
 
     boolean isRunning() {
@@ -102,52 +120,13 @@ public class Server {
      */
     void registerToPoller(SocketChannel client) {
         // nextPollerIndex 加到最大值溢出
-        this.pollers.get(Math.abs(nextPollerIndex.getAndIncrement()) % pollerThreadCount).register(client);;
+        this.pollers.get(Math.abs(nextPollerIndex.getAndIncrement()) % pollerThreadCount).register(client, true);
     }
 
     /**
      * 处理读就绪的客户端连接
-     * @param socketWrapper
      */
-    public void processClient(SocketWrapper socketWrapper) {
-//        ByteBuffer buffer = ByteBuffer.allocate(1024);
-//        SocketChannel client = socketWrapper.getClient();
-//        try {
-//            int len;
-//            while (true) {
-//                len = client.read(buffer);
-//                if (len == 0)
-//                    break;
-//                if (len == -1) { // 当客户端主动关闭连接时，必须取消它的监听，否则会死循环
-//                    socketWrapper.close();
-//                    return;
-//                }
-//                buffer.flip();
-//                System.out.println(Charset.defaultCharset().decode(buffer));
-//                buffer.clear();
-//            }
-//            HttpResponse response = new HttpResponse();
-//            response.setContent("hello!!!".getBytes());
-//            response.addHeader("Server", "XXX");
-//            response.setContentType("text/html");
-//            Cookie cookie = new Cookie("ccc", "bbb");
-//            cookie.setMaxAge(3600 * 24 * 10);
-//            response.addCookie(cookie);
-//            response.setStatus(HttpStatus.SC_200);
-//            ByteBuffer[] bf = response.getResponseData();
-//            client.write(bf);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
+    void processClient(SocketWrapper socketWrapper) {
+        this.requestProcessor.process(socketWrapper);
     }
-
-    public static void main(String[] args) throws InterruptedException {
-        System.setProperty(ServerConfig.POLLER_THREAD_COUNT, "2");
-        System.setProperty(ServerConfig.CONNECTION_EXPIRY_TIME, "1000");
-        System.setProperty(ServerConfig.CONNECTION_CLEANING_CYCLE, "10000");
-        System.setProperty(ServerConfig.PORT, "80");
-        new Server().start(Integer.parseInt(System.getProperty(ServerConfig.PORT)));
-        Thread.sleep(500000);
-    }
-
 }

@@ -1,4 +1,4 @@
-package org.webserver.container.annotations;
+package org.webserver.container.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

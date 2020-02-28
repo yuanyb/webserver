@@ -8,6 +8,7 @@ public enum HttpStatus {
     SC_400(400, "Bad Request"),
     SC_403(403, "Forbidden"),
     SC_404(404, "File Not Found"),
+    SC_405(405, "Method Not Allowed"),
     SC_500(500, "Internal Server Error");
 
     private int code;
