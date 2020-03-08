@@ -48,6 +48,10 @@ public class HttpSession {
         return lastAccessedTime;
     }
 
+    public void setLastAccessedTime(long time) {
+        this.lastAccessedTime = time;
+    }
+
     public long getCreationTime() {
         return creationTime;
     }

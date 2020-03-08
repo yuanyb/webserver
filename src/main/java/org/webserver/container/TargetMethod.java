@@ -54,11 +54,12 @@ public class TargetMethod {
         HttpResponse response = new HttpResponse();
         response.setStatus(HttpStatus.SC_200);
         try {
-            // 返回值为 String，表示渲染的页面路径
+            // 返回 String 或 void，表示渲染的页面路径或不使用模板
             String path = (String)method.invoke(controller, buildParameters(request, response));
             // 渲染
-            TemplateParser.parse(request, response, path);
-
+            if (path != null) {
+                TemplateParser.parse(request, response, path);
+            }
         } catch (InternalServerException e) {
             logger.severe(e.getMessage());
             ErrorResponseUtil.renderErrorResponse(response, HttpStatus.SC_500, e.getMessage());

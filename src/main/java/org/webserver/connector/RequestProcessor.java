@@ -87,6 +87,9 @@ public class RequestProcessor {
             // 构建响应
             HttpResponse response = buildResponse(request);
 
+            // 设置session上次访问时间
+            request.getSession().setLastAccessedTime(System.currentTimeMillis());
+
             // 写回并处理连接（持久连接or非持久连接）
             writeResponse(request, response);
         }
