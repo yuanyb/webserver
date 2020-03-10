@@ -25,10 +25,10 @@ public class HttpRequestParser {
     }
 
     private static void parseReqLine(Scanner in, HttpRequest request) {
-        String line = URLDecoder.decode(in.nextLine(), StandardCharsets.UTF_8);
+        String line = in.nextLine();
         String[] sa = line.split(" ");
         request.setMethod(HttpMethod.get(sa[0]));
-        request.setRequestURI(sa[1]);
+        request.setRequestURI(URLDecoder.decode(sa[1], StandardCharsets.UTF_8));
     }
 
     private static void parseParams(Scanner in, HttpRequest request) {

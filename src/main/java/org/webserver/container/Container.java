@@ -70,7 +70,7 @@ public class Container {
      */
     public HttpSession getSession(String id) {
         HttpSession session = sessions.get(id);
-        if (session.isNew())
+        if (session != null && session.isNew())
             session.setIsNew(false);
         return session;
     }
