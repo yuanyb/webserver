@@ -34,7 +34,7 @@ class RequestProcessor {
     private final static int REQUEST_PROCESSOR_THREAD_COUNT =
             Integer.parseInt(System.getProperty(ServerConfig.REQUEST_PROCESSOR_THREAD_COUNT));
 
-    /** 控制器根路径 */
+    /** WEBAPP根路径 */
     private final String WEBAPP_ROOT_PATH =
             RequestProcessor.class.getResource("/webapp/")
                     .toString().substring(6); //substring(6)去掉开头的file:/

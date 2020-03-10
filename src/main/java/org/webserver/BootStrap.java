@@ -26,10 +26,11 @@ public class BootStrap {
 
     private static void initConfig() throws IOException {
         Properties configs = new Properties();
-        if (!Files.exists(Path.of(BootStrap.class.getResource("/").toString().substring(6) + "/server-config.properties"))) {
-            throw new FileNotFoundException("服务器配置文件[server-config.properties]不存在");
+        if (Files.exists(Path.of(BootStrap.class.getResource("/").toString().substring(6) + "/server-config.properties"))) {
+            configs.load(BootStrap.class.getResourceAsStream("/server-config.properties"));
+        } else {
+            configs.load(BootStrap.class.getResourceAsStream("/default-server-config.properties"));
         }
-        configs.load(BootStrap.class.getResourceAsStream("/server-config.properties"));
         configs.forEach((k, v) -> {
             System.setProperty(k.toString(), v.toString());
         });

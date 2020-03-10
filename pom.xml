@@ -21,15 +21,15 @@
 
     <build>
         <finalName>webserver</finalName>
-        <resources>
-            <resource>
-                <directory>src/main/webapp</directory>
-                <includes>
-                    <include>**/*.*</include>
-                </includes>
-                <targetPath>webapp/</targetPath>
-            </resource>
-        </resources>
+<!--        <resources>-->
+<!--            <resource>-->
+<!--                <directory>src/main/webapp</directory>-->
+<!--                <includes>-->
+<!--                    <include>**/*.*</include>-->
+<!--                </includes>-->
+<!--                <targetPath>webapp/</targetPath>-->
+<!--            </resource>-->
+<!--        </resources>-->
 
         <plugins>
             <plugin>

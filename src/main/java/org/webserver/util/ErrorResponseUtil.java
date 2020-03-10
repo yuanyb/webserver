@@ -6,6 +6,7 @@ import org.webserver.http.response.HttpStatus;
 import java.io.IOException;
 
 public class ErrorResponseUtil {
+    // todo error page
     public static void renderErrorResponse(HttpResponse response, HttpStatus status, String msg) {
         response.setStatus(status);
         response.setContentType("text/html; charset=utf-8");

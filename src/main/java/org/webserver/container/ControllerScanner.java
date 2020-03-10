@@ -12,18 +12,17 @@ import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.Logger;
 
 public class ControllerScanner {
     private static final Logger logger = Logger.getLogger(ControllerScanner.class.getPackageName());
     private static final String CONTROLLER_ROOT_PATH =
-            ControllerScanner.class.getResource("/org/webserver/controller/")
+            ControllerScanner.class.getResource("/")
             .toString().substring(6); //substring(6)去掉开头的file://
 
     /**
-     * 扫描 webapp 包下的控制器
-     * @return
-     * @throws InternalServerException
+     * 扫描控制器
      */
     static Map<String, TargetMethod> scan() throws InternalServerException {
         logger.info("开始扫描控制器");
@@ -52,16 +51,14 @@ public class ControllerScanner {
     }
 
     private static String getClassName(Path path) {
-        return "org.webserver.controller." + path.toString()
+        return path.toString()
                 .substring(CONTROLLER_ROOT_PATH.length(), path.toString().lastIndexOf(".class"))
-                .replaceAll("[/\\\\]", "\\\\.");
+                .replaceAll("[/\\\\]", "\\.");
     }
 
 
     /**
      * 解析控制器类的映射方法
-     * @param map
-     * @param clazz
      */
     private static void parseRequestMapping(Map<String, TargetMethod> map, Class<?> clazz) {
         Method[] methods = clazz.getMethods();
