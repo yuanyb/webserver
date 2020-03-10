@@ -25,8 +25,10 @@ public class Acceptor implements Runnable {
                         Thread.currentThread().getName(), client.getRemoteAddress()));
                 server.registerToPoller(client);
             } catch (IOException e) {
-                e.printStackTrace();
-                logger.warning(String.format("%s 出现异常[%s]", Thread.currentThread().getName(), e.getMessage()));
+                if (server.isRunning()) {
+                    e.printStackTrace();
+                    logger.warning(String.format("%s 出现异常[%s]", Thread.currentThread().getName(), e.getMessage()));
+                }
             }
         }
     }

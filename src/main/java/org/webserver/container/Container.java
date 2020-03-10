@@ -94,4 +94,8 @@ public class Container {
         logger.info(String.format("Session[%s]被销毁", httpSession.getID()));
         this.sessions.remove(httpSession.getID());
     }
+
+    public void close() {
+        this.sessionCleaner.shutDown();;
+    }
 }

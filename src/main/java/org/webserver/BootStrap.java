@@ -16,12 +16,21 @@ import java.util.Scanner;
 import java.util.logging.*;
 
 public class BootStrap {
-    public static void main(String[] args) throws IOException, InterruptedException {
-        initConfig();
-        initLogger();
+    public static void run() {
+        try {
+            initConfig();
+            initLogger();
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.out.println("初始化配置文件或日志器失败");
+            return;
+        }
         Server server = new Server();
-        server.start(Integer.parseInt(System.getProperty("PORT")));
+        server.start(Integer.parseInt(System.getProperty(ServerConfig.PORT)));
+        System.out.println("输入exit结束服务器");
         Scanner in = new Scanner(System.in);
+        while (!in.nextLine().equals("exit")) {}
+        server.close();
     }
 
     private static void initConfig() throws IOException {

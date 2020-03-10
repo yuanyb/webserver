@@ -81,7 +81,7 @@ public class Server {
         logger.info("启动连接监听器");
         this.acceptor = new Acceptor(this);
         Thread thread = new Thread(this.acceptor, "Acceptor");
-        thread.setDaemon(true); // 设置为Connector线程的守护线程
+        thread.setDaemon(true); // 设置为守护线程
         thread.start();
     }
 
@@ -115,6 +115,19 @@ public class Server {
         this.requestProcessor = new RequestProcessor(this.container);
     }
 // ============== 初始化方法结束 ==============
+    public void close() {
+        isRunning = false;
+        logger.info("服务器关闭");
+        this.requestProcessor.shutdown();
+        this.connectionCleaner.shutDown();
+        this.container.close();
+        try {
+            server.close();
+        } catch (IOException ignore) {
+        }
+        // 其他线程都为守护线程
+    }
+
 
     /**
      * 服务器是否还在运行，Acceptor 和 Poller使用

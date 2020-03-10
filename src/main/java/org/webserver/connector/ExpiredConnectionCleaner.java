@@ -34,6 +34,7 @@ public class ExpiredConnectionCleaner {
     }
 
     void shutDown() {
+        logger.info("终止过期连接清理器");
         this.cleaner.shutdown();
     }
 

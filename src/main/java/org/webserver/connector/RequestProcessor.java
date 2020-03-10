@@ -71,6 +71,10 @@ class RequestProcessor {
         threadPool.submit(new RequestProcessTask(socketWrapper));
     }
 
+    /** 关闭线程池 */
+    void shutdown() {
+        this.threadPool.shutdown();
+    }
 
     /** 请求处理任务类 */
     private class RequestProcessTask implements Runnable {
