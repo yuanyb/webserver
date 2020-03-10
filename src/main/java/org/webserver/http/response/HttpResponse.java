@@ -20,6 +20,7 @@ public class HttpResponse {
         this.headers = new HashMap<>();
         this.cookies = new ArrayList<>();
         this.content = new ByteArrayOutputStream();
+        this.status = HttpStatus.SC_200;
     }
 
     public void addCookie(Cookie cookie) {
@@ -112,7 +113,9 @@ public class HttpResponse {
                     .append("=")
                     .append(cookie.getValue())
                     .append("; ");
-            sb.append("Max-Age=").append(cookie.getMaxAge()).append(HttpConstant.CRLF);
+            if (cookie.getMaxAge() != -1)
+                sb.append("max-age=").append(cookie.getMaxAge());
+            sb.append(HttpConstant.CRLF);
         });
 
         sb.append(HttpConstant.CRLF);

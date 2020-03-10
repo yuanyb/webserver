@@ -13,50 +13,54 @@ import java.util.*;
 public class HttpRequestParser {
     public static HttpRequest parseRequest(SocketWrapper socketWrapper, Container container) {
         // 应该逐字节判断？长连接需要根据Content-Length，判断请求结束，为了方便就用Scanner了
-        HttpRequest httpRequest = new HttpRequest();
+        HttpRequest request = new HttpRequest();
         Scanner in = new Scanner(socketWrapper.getClient());
-        parseReqLine(in, httpRequest);
-        parseParams(in, httpRequest);
-        parseHeaders(in, httpRequest);
-        parseCookies(in, httpRequest);
-        parseSession(container, httpRequest);
-        parseBody(in, httpRequest);
-        return httpRequest;
+        parseReqLine(in, request);
+        parseParams(in, request);
+        parseHeaders(in, request);
+        parseCookies(in, request);
+        parseSession(container, request);
+        parseBody(in, request);
+        return request;
     }
 
-    private static void parseReqLine(Scanner in, HttpRequest httpRequest) {
+    private static void parseReqLine(Scanner in, HttpRequest request) {
         String line = URLDecoder.decode(in.nextLine(), StandardCharsets.UTF_8);
         String[] sa = line.split(" ");
-        httpRequest.setMethod(HttpMethod.get(sa[0]));
-        httpRequest.setRequestURI(sa[1]);
+        request.setMethod(HttpMethod.get(sa[0]));
+        request.setRequestURI(sa[1]);
     }
 
-    private static void parseParams(Scanner in, HttpRequest httpRequest) {
-        String[] sa, kv;
-        sa = httpRequest.getRequestURI().substring(httpRequest.getRequestURI().indexOf('?') + 1).split("&");
+    private static void parseParams(Scanner in, HttpRequest request) {
         Map<String, List<String>> params = new HashMap<>();
+        if (request.getRequestURI().indexOf('?') == -1) {
+            request.setParams(params);
+            return;
+        }
+        String[] sa, kv;
+        sa = request.getRequestURI().substring(request.getRequestURI().indexOf('?') + 1).split("&");
         for (String param : sa) {
             kv = param.split("=");
             params.putIfAbsent(kv[0], new ArrayList<>(1));
             params.get(kv[0]).add(kv[1]);
         }
-        httpRequest.setParams(params);
+        request.setParams(params);
     }
 
-    private static void parseHeaders(Scanner in, HttpRequest httpRequest) {
+    private static void parseHeaders(Scanner in, HttpRequest request) {
         Map<String, String> headers = new HashMap<>();
         String line;
         while (!(line = in.nextLine()).equals("")) {
             String[] h = line.split(":");
             headers.put(h[0], h[1].trim());
         }
-        httpRequest.setHeaders(headers);
+        request.setHeaders(headers);
     }
 
-    private static void parseCookies(Scanner in, HttpRequest httpRequest) {
-        String cookieStr = httpRequest.getHeader(HttpConstant.COOKIE);
+    private static void parseCookies(Scanner in, HttpRequest request) {
+        String cookieStr = request.getHeader(HttpConstant.COOKIE);
         if (cookieStr == null) {
-            httpRequest.setCookies(new HashMap<>());
+            request.setCookies(new HashMap<>());
             return;
         }
         String[] sa = cookieStr.split(";"), kv;
@@ -65,7 +69,7 @@ public class HttpRequestParser {
             kv = s.split("=");
             cookies.put(kv[0].trim(), new Cookie(kv[0].trim(), kv[1].trim()));
         }
-        httpRequest.setCookies(cookies);
+        request.setCookies(cookies);
     }
 
     private static void parseSession(Container container, HttpRequest request) {
@@ -82,15 +86,15 @@ public class HttpRequestParser {
     }
 
 
-    private static void parseBody(Scanner in, HttpRequest httpRequest) {
-        if (!httpRequest.getMethod().equals(HttpMethod.POST))
+    private static void parseBody(Scanner in, HttpRequest request) {
+        if (!request.getMethod().equals(HttpMethod.POST))
             return;
-        if (httpRequest.getHeader(HttpConstant.CONTENT_TYPE).equals(HttpConstant.POST_COMMIT_FORM)) {
+        if (request.getHeader(HttpConstant.CONTENT_TYPE).equals(HttpConstant.POST_COMMIT_FORM)) {
             String[] sa, kv;
             sa = URLDecoder.decode(in.nextLine(), StandardCharsets.UTF_8).split("&");
             for (String param : sa) {
                 kv = param.split("=");
-                httpRequest.addParam(kv[0], kv[1]);
+                request.addParam(kv[0], kv[1]);
             }
         }
 //        } else if (false && headers.get(HttpConstant.CONTENT_TYPE).equals(HttpConstant.POST_UPLOAD_FILE)) {

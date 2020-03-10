@@ -17,11 +17,9 @@ public class Acceptor implements Runnable {
 
     @Override
     public void run() {
-        SocketChannel client;
-
         while (server.isRunning()) {
             try {
-                client = server.accept(); // ServerSocketChannel处于阻塞模式下，不会返回null，无需判断
+                SocketChannel client = server.accept(); // ServerSocketChannel处于阻塞模式下，不会返回null，无需判断
                 client.configureBlocking(false); // 将client设为非阻塞模式，注册到轮询线程
                 logger.info(String.format("%s 接收到新的连接请求 %s",
                         Thread.currentThread().getName(), client.getRemoteAddress()));

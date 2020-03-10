@@ -4,6 +4,7 @@ import org.webserver.constant.HttpConstant;
 import org.webserver.constant.ServerConfig;
 import org.webserver.container.Container;
 import org.webserver.exception.HttpMethodNotSupportedException;
+import org.webserver.http.Cookie;
 import org.webserver.http.request.HttpRequest;
 import org.webserver.http.request.HttpRequestParser;
 import org.webserver.http.response.HttpResponse;
@@ -24,7 +25,7 @@ import java.util.logging.Logger;
 /**
  * 请求处理器：处理传递过来的请求
  */
-public class RequestProcessor {
+class RequestProcessor {
     private final static Logger logger =
             Logger.getLogger(RequestProcessor.class.getPackageName());
 
@@ -33,8 +34,8 @@ public class RequestProcessor {
             Integer.parseInt(System.getProperty(ServerConfig.REQUEST_PROCESSOR_THREAD_COUNT));
 
     /** 控制器根路径 */
-    private final String CONTROLLER_ROOT_PATH =
-            RequestProcessor.class.getResource("/org/webserver/controller/")
+    private final String WEBAPP_ROOT_PATH =
+            RequestProcessor.class.getResource("/webapp/")
                     .toString().substring(6); //substring(6)去掉开头的file:/
 
     /** MIME TYPE */
@@ -70,11 +71,10 @@ public class RequestProcessor {
     }
 
 
-
-
     /** 请求处理任务类 */
     private class RequestProcessTask implements Runnable {
         private SocketWrapper socketWrapper;
+
         RequestProcessTask(SocketWrapper socketWrapper) {
             this.socketWrapper = socketWrapper;
         }
@@ -87,11 +87,16 @@ public class RequestProcessor {
             // 构建响应
             HttpResponse response = buildResponse(request);
 
-            // 设置session上次访问时间
-            request.getSession().setLastAccessedTime(System.currentTimeMillis());
+            //是否需要向客户端返回 Cookie:JSESSIONID=xxx
+            if (request.getSession().isNew()) {
+                response.addCookie(new Cookie(HttpConstant.JSESSIONID, request.getSession().getID()));
+            }
 
             // 写回并处理连接（持久连接or非持久连接）
             writeResponse(request, response);
+
+            // 设置session上次访问时间
+            request.getSession().setLastAccessedTime(System.currentTimeMillis());
         }
 
 
@@ -107,9 +112,11 @@ public class RequestProcessor {
                 ErrorResponseUtil.renderErrorResponse(response, HttpStatus.SC_405, "不支持 " + request.getMethod() + "方法");
             }
 
-            if (response == null) { // 静态资源
+            // 静态资源
+            if (response == null) {
                 response = processStaticResource(request);
             }
+
             return response;
         }
 
@@ -122,14 +129,12 @@ public class RequestProcessor {
             String URI = request.getRequestURI();
             int idx = URI.indexOf('?');
             String filename = URI.substring(1, idx == -1 ? URI.length() : idx);
-            filename = RequestProcessor.this.CONTROLLER_ROOT_PATH + filename;
+            filename = RequestProcessor.this.WEBAPP_ROOT_PATH + filename;
 
-            try {
-                response.setStatus(HttpStatus.SC_200);
-                String extName = filename.substring(filename.lastIndexOf('.') + 1);
-                response.setContentType(mime.getProperty(extName));
+            String extName = filename.substring(filename.lastIndexOf('.') + 1);
+            response.setContentType(mime.getProperty(extName));
+            try (FileInputStream fin = new FileInputStream(filename)) {
                 response.setContentLength(Files.size(Path.of(filename)));
-                FileInputStream fin = new FileInputStream(filename);
                 byte[] buffer = new byte[512];
                 int len;
                 while ((len = fin.read(buffer)) > 0) {
@@ -139,13 +144,11 @@ public class RequestProcessor {
             // 404
             catch (FileNotFoundException e) {
                 ErrorResponseUtil.renderErrorResponse(response, HttpStatus.SC_400, request.getRequestURI());
-                e.printStackTrace();
                 logger.warning(String.format("未找到文件：%s", filename));
             }
             // 500
             catch (IOException e) {
                 ErrorResponseUtil.renderErrorResponse(response, HttpStatus.SC_500, e.getMessage());
-                e.printStackTrace();
                 logger.warning(String.format("读取静态文件失败（%s）：%s", filename, e.getMessage()));
                 response.setStatus(HttpStatus.SC_500);
             }

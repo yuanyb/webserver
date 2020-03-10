@@ -74,7 +74,7 @@ public class HttpRequest {
         this.URI = URI;
     }
 
-    void setParams(Map<String, List<String>> params) {
+    public void setParams(Map<String, List<String>> params) {
         this.params = params;
     }
 

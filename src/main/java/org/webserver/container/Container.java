@@ -1,7 +1,6 @@
 package org.webserver.container;
 
 import org.webserver.constant.ServerConfig;
-import org.webserver.container.annotation.Controller;
 import org.webserver.exception.HttpMethodNotSupportedException;
 import org.webserver.exception.InternalServerException;
 import org.webserver.http.HttpMethod;
@@ -10,7 +9,6 @@ import org.webserver.http.response.HttpResponse;
 import org.webserver.http.session.ExpiredSessionCleaner;
 import org.webserver.http.session.HttpSession;
 
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,21 +26,24 @@ public class Container {
 
     /**
      * 初始化容器
-     * @throws InternalServerException
      */
     public void init() throws InternalServerException {
         logger.info("初始化容器类");
         this.methodMap = ControllerScanner.scan();
+        initExpiredSessionCleaner();
     }
 
     /**
      * 处理请求
      */
     public HttpResponse handle(HttpRequest request) throws HttpMethodNotSupportedException{
-        String target = request.getRequestURI().substring(0, request.getRequestURI().indexOf('?'));
-        if (methodMap.get(target) == null) { // 请求静态资源
+        int idx = request.getRequestURI().indexOf('?');
+        String target = request.getRequestURI().substring(0, idx == -1 ? request.getRequestURI().length() : idx);
+        // 请求的可能是静态资源
+        if (methodMap.get(target) == null) {
             return null;
         }
+        // 方法不支持
         if(!methodMap.get(target).getHttpMethodType().equals(HttpMethod.ANY) && !request.getMethod().equals(methodMap.get(target).getHttpMethodType())) {
             throw new HttpMethodNotSupportedException();
         }
@@ -51,20 +52,27 @@ public class Container {
 
     private void initExpiredSessionCleaner() {
         this.sessionCleaner = new ExpiredSessionCleaner(this);
+        this.sessionCleaner.start();
     }
 
     /**
      * 重建一个新Session
-     * @return
      */
     public HttpSession createNewSession() {
         HttpSession session = new HttpSession(this);
         sessions.put(session.getID(), session);
+        session.setIsNew(true);
         return session;
     }
 
+    /**
+     * 获取指定 Session
+     */
     public HttpSession getSession(String id) {
-        return sessions.get(id);
+        HttpSession session = sessions.get(id);
+        if (session.isNew())
+            session.setIsNew(false);
+        return session;
     }
 
     public void clearExpiredSession() {
@@ -81,7 +89,6 @@ public class Container {
 
     /**
      * 销毁指定Session
-     * @param httpSession
      */
     public void invalidateSession(HttpSession httpSession) {
         logger.info(String.format("Session[%s]被销毁", httpSession.getID()));

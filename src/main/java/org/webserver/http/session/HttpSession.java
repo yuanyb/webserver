@@ -1,6 +1,5 @@
 package org.webserver.http.session;
 
-import org.webserver.constant.HttpConstant;
 import org.webserver.container.Container;
 
 import java.util.Map;
@@ -12,9 +11,11 @@ public class HttpSession {
     private long creationTime;
     private long lastAccessedTime;
     private Container container;
+    /** 是否是本次请求创建的新的Session，用于判断是否向客户端返回 Set-Cookie:JSESSIONID */
+    private boolean isNew;
 
     public HttpSession(Container container) {
-        this.sessionID = UUID.randomUUID().toString();
+        this.sessionID = UUID.randomUUID().toString().replaceAll("-", "");
         this.lastAccessedTime = this.creationTime = System.currentTimeMillis();
         this.container = container;
     }
@@ -40,10 +41,6 @@ public class HttpSession {
         return sessionID;
     }
 
-    public void setSessionID(String sessionID) {
-        this.sessionID = sessionID;
-    }
-
     public long getLastAccessedTime() {
         return lastAccessedTime;
     }
@@ -57,6 +54,10 @@ public class HttpSession {
     }
 
     public boolean isNew() {
-        return true;
+        return this.isNew;
+    }
+
+    public void setIsNew(boolean isNew) {
+        this.isNew = isNew;
     }
 }

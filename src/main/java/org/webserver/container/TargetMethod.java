@@ -1,6 +1,5 @@
 package org.webserver.container;
 
-import org.webserver.constant.TemplateConstant;
 import org.webserver.container.annotation.CookieValue;
 import org.webserver.container.annotation.RequestHeader;
 import org.webserver.container.annotation.RequestParam;
@@ -19,6 +18,11 @@ import org.webserver.util.StringUtil;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.sql.Ref;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.RunnableFuture;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 /**
@@ -26,11 +30,15 @@ import java.util.logging.Logger;
  */
 public class TargetMethod {
     private static final Logger logger = Logger.getLogger(TargetMethod.class.getPackageName());
-    private final String methodDescriptor; // 方法描述符，用于异常定位
-
-    private final Object controller; // 所属的控制器
-    private final Method method; // 对应的处理方法
+    /** 获得方法描述符，用于异常定位 pkg1.pkg2.Clazz#method(..) */
+    private final String methodDescriptor;
+    /** 所属的控制器 */
+    private final Object controller;
+    /** 被 @RequestMapping标记的处理方法 */
+    private final Method method;
+    /** 参数列表 */
     private final Parameter[] parameters;
+    /** 方法类型 */
     private final HttpMethod httpMethodType;
 
     TargetMethod(Object controller, Method method, HttpMethod httpMethodType) {
@@ -41,18 +49,12 @@ public class TargetMethod {
         this.httpMethodType = httpMethodType;
     }
 
-    HttpMethod getHttpMethodType() {
-        return httpMethodType;
-    }
 
     /**
      * 调用对应的响应方法
-     * @param request
-     * @return
      */
     public HttpResponse invoke(HttpRequest request) {
         HttpResponse response = new HttpResponse();
-        response.setStatus(HttpStatus.SC_200);
         try {
             // 返回 String 或 void，表示渲染的页面路径或不使用模板
             String path = (String)method.invoke(controller, buildParameters(request, response));
@@ -60,6 +62,7 @@ public class TargetMethod {
             if (path != null) {
                 TemplateParser.parse(request, response, path);
             }
+            response.setContentType("text/html; charset=utf-8");
         } catch (InternalServerException e) {
             logger.severe(e.getMessage());
             ErrorResponseUtil.renderErrorResponse(response, HttpStatus.SC_500, e.getMessage());
@@ -75,64 +78,83 @@ public class TargetMethod {
 
     /**
      * 构造要传给method的参数列表
-     * @return
      */
     private Object[] buildParameters(HttpRequest request, HttpResponse response) throws InternalServerException {
         Object[] realParameters = new Object[method.getParameterCount()];
         // 填充参数
         for (int i = 0; i < realParameters.length; i++) {
-            if (ReflectUtil.annotatedWith(parameters[i], RequestParam.class)) {
-                if (!parameters[i].getType().equals(String.class)) {
-                    throw new InternalServerException("控制器编写错误，@RequestParam注解没有标记到String类型的参数上；方法：" + methodDescriptor);
+            // @RequestParam
+            if (ReflectUtil.annotatedWith(parameters[i], RequestParam.class) &&
+                    ReflectUtil.isSimpleType(parameters[i].getType())) {
+                if (request.getParameter(parameters[i].getAnnotation(RequestParam.class).value()) != null) {
+                    // 参数的值
+                    realParameters[i] = ReflectUtil.cast(request.getParameter(
+                            parameters[i].getAnnotation(RequestParam.class).value()), parameters[i].getType());
+                } else if (!parameters[i].getAnnotation(RequestParam.class).defaultValue().equals("")) {
+                    // 注解提供的默认值
+                    realParameters[i] = ReflectUtil.cast(parameters[i].getAnnotation(RequestParam.class).defaultValue(), parameters[i].getType());
+                } else {
+                    // 空默认值
+                    realParameters[i] = ReflectUtil.defaultValue(parameters[i].getType());
                 }
-                realParameters[i] = request.getParameter(
-                        parameters[i].getAnnotation(RequestParam.class).value());
             }
-            else if (ReflectUtil.annotatedWith(parameters[i], RequestHeader.class)) {
-                if (!parameters[i].getType().equals(String.class)) {
-                    throw new InternalServerException("控制器编写错误，@RequestHeader注解没有标记到String类型的参数上；方法：" + methodDescriptor);
-                }
+            // @RequestHeader
+            else if (ReflectUtil.annotatedWith(parameters[i], RequestHeader.class) &&
+                    ReflectUtil.typeEquals(parameters[i].getType(), String.class)) {
                 realParameters[i] = request.getParameter(
                         parameters[i].getAnnotation(RequestHeader.class).value());
             }
-            else if (ReflectUtil.annotatedWith(parameters[i], CookieValue.class)) {
-                if (!parameters[i].getType().equals(String.class)) {
-                    throw new InternalServerException("控制器编写错误，@CookieValue注解没有标记到String类型的参数上；方法：" + methodDescriptor);
-                }
-                realParameters[i] = request.getCookie
-                        (parameters[i].getAnnotation(CookieValue.class).value());
+            // @CookieValue
+            else if (ReflectUtil.annotatedWith(parameters[i], CookieValue.class) &&
+                    ReflectUtil.typeEquals(parameters[i].getType(), String.class)) {
+                realParameters[i] = request.getCookie(
+                        parameters[i].getAnnotation(CookieValue.class).value());
             }
+            // HttpRequest
             else if (ReflectUtil.typeEquals(parameters[i], HttpRequest.class)) {
                 realParameters[i] = request;
             }
+            // HttpResponse
             else if (ReflectUtil.typeEquals(parameters[i], HttpResponse.class)) {
                 realParameters[i] = response;
             }
+            // HttpSession
             else if (ReflectUtil.typeEquals(parameters[i], HttpSession.class)) {
                 realParameters[i] = request.getSession();
             }
-            else if (ReflectUtil.isNotBasicType(parameters[i].getType())) {
-                realParameters[i] = buildBeanFromRequest(request, parameters[i].getType());
+            // JavaBean，支持级联赋值
+            else if (ReflectUtil.isNotSimpleType(parameters[i].getType())) {
+                realParameters[i] = buildBeanFromRequest(request, parameters[i].getType(),
+                        parameters[i].getType().getSimpleName().toLowerCase() + ".");
             }
         }
         return realParameters;
     }
 
+
     /**
      * 从Http请求中构造实体对象
+     * @param prefix 级联赋值的前缀，如：user.info.val
      */
-    private static <T> T buildBeanFromRequest(HttpRequest request, Class<T> type) throws InternalServerException {
+    private static Object buildBeanFromRequest(HttpRequest request, Class<?> type, String prefix) throws InternalServerException {
         try {
-            T bean = type.getConstructor().newInstance();
+            Object bean = type.getConstructor().newInstance();
             Field[] fields = type.getDeclaredFields();
             for (Field field : fields) {
-                if (request.getParameter(field.getName()) == null) {
-                    continue;
-                }
+                field.setAccessible(true);
+                String cascade = prefix + field.getName(); // 级联名，如：user.info.val.val2
                 String setterName = StringUtil.setterName(field.getName());
-                Method method = type.getMethod(setterName, field.getType());
-                // 简单实现，仅支持集中简单的类型
-                method.invoke(bean, cast(request.getParameter(field.getName()), field.getType()));
+                Method setterMethod = type.getMethod(setterName, field.getType());
+                if (ReflectUtil.isNotSimpleType(field.getType())) {
+                    // 递归处理
+                    Object ret = buildBeanFromRequest(request, field.getType(), cascade + ".");
+                    setterMethod.invoke(bean, ret);
+                } else {
+                    if (request.getParameter(cascade) == null) {
+                        continue;
+                    }
+                    setterMethod.invoke(bean, ReflectUtil.cast(request.getParameter(cascade), field.getType()));
+                }
             }
             return bean;
         } catch (Exception e) {
@@ -140,31 +162,15 @@ public class TargetMethod {
         }
     }
 
-    /**
-     * 类型处理器，简单实现，仅支持几种简单的类型
-     */
-    private static <T> T cast(String val, Class<T> type) throws Exception {
-        if (ReflectUtil.typeEquals(String.class, type)) {
-            return type.cast(val);
-        } else if (ReflectUtil.typeEquals(Integer.class, type) || ReflectUtil.typeEquals(int.class, type)) {
-            return type.cast(Integer.parseInt(val));
-        } else if (ReflectUtil.typeEquals(Double.class, type) || ReflectUtil.typeEquals(double.class, type)) {
-            return type.cast(Double.parseDouble(val));
-        } else if (ReflectUtil.typeEquals(Float.class, type) || ReflectUtil.typeEquals(float.class, type)) {
-            return type.cast(Float.parseFloat(val));
-        } else if (ReflectUtil.typeEquals(Boolean.class, type) || ReflectUtil.typeEquals(boolean.class, type)) {
-            return type.cast(Boolean.parseBoolean(val));
-        } else if (ReflectUtil.typeEquals(Long.class, type) || ReflectUtil.typeEquals(long.class, type)) {
-            return type.cast(Long.parseLong(val));
-        }
-        try {
-            return type.getConstructor().newInstance();
-        } catch (Exception e) {
-            throw e;
-        }
-    }
 
+    /**
+     * 获得方法描述符，用于异常定位 pkg1.pkg2.Clazz#method
+     */
     String getMethodDescriptor() {
         return this.methodDescriptor;
+    }
+
+    HttpMethod getHttpMethodType() {
+        return httpMethodType;
     }
 }

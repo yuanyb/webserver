@@ -103,11 +103,14 @@ public class Poller implements Runnable {
         socketWrapper.getClient().keyFor(selector).cancel();
     }
 
-    void enableReadListening(SocketWrapper socketWrapper) {
+
+    /**
+     * 将Socket注册到Selector上，监听读事件
+     */
+    private void enableReadListening(SocketWrapper socketWrapper) {
         try {
             socketWrapper.getClient().register(selector, SelectionKey.OP_READ);
-        } catch (Exception ignore) {
-            // selector 已关闭，服务器结束运行了
+        } catch (ClosedChannelException ignore) {
         }
     }
 
@@ -122,6 +125,7 @@ public class Poller implements Runnable {
             }
         }
     }
+
 
     /**
      * 清理过期（长时间未通信）的 HTTP 长连接

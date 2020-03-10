@@ -73,7 +73,7 @@ public class TemplateParser {
             if (scope.equals(TemplateConstant.SCOPE_REQUEST)) {
                 value = request.getAttribute(keys[0]);
             } else if(scope.equals(TemplateConstant.SCOPE_SESSION)) {
-                value = request.getAttribute(keys[0]);
+                value = request.getSession().getAttribute(keys[0]);
             }
             value = parseHolderHelper(value, keys, 1);
             // 替换
