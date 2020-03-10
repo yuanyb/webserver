@@ -122,6 +122,11 @@ public class HttpResponse {
         return ByteBuffer.wrap(sb.toString().getBytes(StandardCharsets.US_ASCII));
     }
 
+    public int getContentLength() {
+        // 记录日志用，写完数据再调用该方法，安全
+        return Integer.parseInt(this.headers.get(HttpConstant.CONTENT_LENGTH));
+    }
+
     public Writer getWriter() {
         return new OutputStreamWriter(content);
     }

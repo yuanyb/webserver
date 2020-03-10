@@ -26,8 +26,9 @@ import java.util.logging.Logger;
  * 请求处理器：处理传递过来的请求
  */
 class RequestProcessor {
-    private final static Logger logger =
+    private final static Logger serverLogger =
             Logger.getLogger(RequestProcessor.class.getPackageName());
+    private final static Logger accessLogger = Logger.getLogger("http_access");
 
     /** 线程池大小 */
     private final static int REQUEST_PROCESSOR_THREAD_COUNT =
@@ -56,11 +57,11 @@ class RequestProcessor {
             try {
                 this.mime.load(mimeInput);
             } catch (IOException e) {
-                logger.warning("加载配置文件 mime.properties 失败");
+                serverLogger.warning("加载配置文件 mime.properties 失败");
                 e.printStackTrace();
             }
         } else {
-            logger.warning("缺少配置文件 mime.properties");
+            serverLogger.warning("缺少配置文件 mime.properties");
         }
     }
 
@@ -97,6 +98,14 @@ class RequestProcessor {
 
             // 设置session上次访问时间
             request.getSession().setLastAccessedTime(System.currentTimeMillis());
+
+            try {
+                accessLogger.info(String.format("%s|%s|%d|%d",
+                        socketWrapper.getClient().getRemoteAddress(),
+                        request.getRequestURI(),
+                        response.getStatus().getCode(),
+                        response.getContentLength()));
+            } catch (Exception ignore){}
         }
 
 
@@ -144,24 +153,28 @@ class RequestProcessor {
             // 404
             catch (FileNotFoundException e) {
                 ErrorResponseUtil.renderErrorResponse(response, HttpStatus.SC_400, request.getRequestURI());
-                logger.warning(String.format("未找到文件：%s", filename));
+                serverLogger.warning(String.format("未找到文件：%s", filename));
             }
             // 500
             catch (IOException e) {
                 ErrorResponseUtil.renderErrorResponse(response, HttpStatus.SC_500, e.getMessage());
-                logger.warning(String.format("读取静态文件失败（%s）：%s", filename, e.getMessage()));
+                serverLogger.warning(String.format("读取静态文件失败（%s）：%s", filename, e.getMessage()));
                 response.setStatus(HttpStatus.SC_500);
             }
 
             return response;
         }
 
-        public void writeResponse(HttpRequest request, HttpResponse response) {
+
+        /**
+         * 写回数据，并处理连接
+         */
+        private void writeResponse(HttpRequest request, HttpResponse response) {
             // 写回数据
             try {
                 socketWrapper.getClient().write(response.getResponseData());
             } catch (IOException e) {
-                logger.warning(String.format("向客户端[%s]写数据失败：%s", socketWrapper.getClient(), e.getMessage()));
+                serverLogger.warning(String.format("向客户端[%s]写数据失败：%s", socketWrapper.getClient(), e.getMessage()));
                 e.printStackTrace();
             }
 
@@ -169,15 +182,15 @@ class RequestProcessor {
             String conn = request.getHeader(HttpConstant.CONNECTION);
             if (conn != null && conn.contains("close")) { // 非持久连接
                 try {
-                    logger.info(String.format("非持久连接：关闭 %s", socketWrapper.getClient()));
+                    serverLogger.info(String.format("非持久连接：关闭 %s", socketWrapper.getClient()));
                     socketWrapper.close();
                 } catch (IOException e) {
-                    logger.warning("关闭连接失败：" + e.getMessage());
+                    serverLogger.warning("关闭连接失败：" + e.getMessage());
                     e.printStackTrace();
                 }
             } else { // 持久连接
                 socketWrapper.getPoller().register(socketWrapper.getClient(), false);
-                logger.info(String.format("持久连接：%s 被重新注册到了Poller", socketWrapper.getClient()));
+                serverLogger.info(String.format("持久连接：%s 被重新注册到了Poller", socketWrapper.getClient()));
             }
         }
     }
