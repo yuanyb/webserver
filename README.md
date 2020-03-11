@@ -27,7 +27,7 @@ HttpMethod
 
 ## 使用方法
 
-导入 jar 包即可使用相关注解，还需要在 classpath 下创建一个 webapp 目录，表示静态 web 资源的根路径。然后在主类的 `main` 方法中调用 `BootStrap.run()`，由于扫描控制器是通过遍历目录实现的，所以项目不支持打包，必须以 class 文件的形式发布。参数配置需要在 classpath 中提供一个 server-config.properties 配置文件即可，包含如下配置项：
+导入 jar 包（见 release）即可使用相关注解，还需要在 classpath 下创建一个 webapp 目录，表示静态 web 资源的根路径。然后在主类的 `main` 方法中调用 `BootStrap.run()`，由于扫描控制器是通过遍历目录实现的，所以项目不支持打包，必须以 class 文件的形式发布。参数配置需要在 classpath 中提供一个 server-config.properties 配置文件即可，包含如下配置项：
 
 ```properties
 # 服务器端口
