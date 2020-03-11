@@ -44,7 +44,7 @@ public class ControllerScanner {
                 }
             });
         } catch (IOException e) {
-            logger.info("加载类失败（IO错误）：" + e.getMessage());
+            logger.warning("加载类失败（IO错误）：" + e.getMessage());
             throw new InternalServerException("加载类失败（IO错误）：" + e.getMessage());
         }
         return map;
@@ -62,6 +62,13 @@ public class ControllerScanner {
      */
     private static void parseRequestMapping(Map<String, TargetMethod> map, Class<?> clazz) {
         Method[] methods = clazz.getMethods();
+        Object controller;
+        try {
+            controller = clazz.getConstructor().newInstance();
+        } catch (Exception e) {
+            logger.warning("类[" + clazz.getName() + "] 无默认构造函数，构造失败");
+            return;
+        }
         // 如果控制器类使用了@RequestMapping注解的话
         String baseRequestMapping = "";
         if (ReflectUtil.annotatedWith(clazz, RequestMapping.class)) {
@@ -80,7 +87,7 @@ public class ControllerScanner {
                 HttpMethod methodType = method.getAnnotation(RequestMapping.class).method();
                 TargetMethod targetMethod = null;
                 try {
-                    targetMethod = new TargetMethod(clazz.newInstance(), method, methodType);
+                    targetMethod = new TargetMethod(controller, method, methodType);
                 } catch (Exception ignore) {}
                 map.put(baseRequestMapping + methodRequestMapping, targetMethod);
                 logger.info(String.format("发现请求映射：[ %s => %s]", baseRequestMapping + methodRequestMapping, targetMethod.getMethodDescriptor()));

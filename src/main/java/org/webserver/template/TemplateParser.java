@@ -42,7 +42,7 @@ public class TemplateParser {
             content = Files.readString(Path.of(WEBAPP_ROOT_PATH + path));
         } catch (IOException e) {
             e.printStackTrace();
-            logger.info("读取模板失败：" + e.getMessage());
+            logger.warning("读取模板失败：" + e.getMessage());
             return;
         }
 

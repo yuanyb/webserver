@@ -1,5 +1,7 @@
-# maven
+# custom
 /target
+/.idea
+webserver.iml
 
 # Compiled class file
 *.class

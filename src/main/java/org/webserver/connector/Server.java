@@ -62,7 +62,7 @@ public class Server {
             initRequestProcessor();
             logger.info("服务启动成功");
         } catch (IOException | InternalServerException e) {
-            logger.info("服务器启动失败：" + e.getMessage());
+            logger.severe("服务器启动失败：" + e.getMessage());
             this.isRunning = false;
             e.printStackTrace();
         }
