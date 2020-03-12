@@ -3,6 +3,7 @@ package org.webserver.container;
 import org.webserver.container.annotation.CookieValue;
 import org.webserver.container.annotation.RequestHeader;
 import org.webserver.container.annotation.RequestParam;
+import org.webserver.exception.HttpMethodNotSupportedException;
 import org.webserver.exception.InternalServerException;
 import org.webserver.exception.TemplateParseException;
 import org.webserver.http.HttpMethod;
@@ -56,6 +57,10 @@ public class TargetMethod {
     public HttpResponse invoke(HttpRequest request) {
         HttpResponse response = new HttpResponse();
         try {
+            // 请求方法类型不支持
+            if (this.httpMethodType != HttpMethod.ANY && request.getMethod() != this.httpMethodType) {
+                throw new HttpMethodNotSupportedException();
+            }
             // 返回 String 或 void，表示渲染的页面路径或不使用模板
             String path = (String)method.invoke(controller, buildParameters(request, response));
             // 渲染
@@ -71,6 +76,8 @@ public class TargetMethod {
             logger.severe("模板解析错误" + e.getMessage());
             ErrorResponseUtil.renderErrorResponse(response, HttpStatus.SC_500, "模板解析错误：" + e.getMessage());
             e.printStackTrace();
+        } catch (HttpMethodNotSupportedException e) {
+            ErrorResponseUtil.renderErrorResponse(response, HttpStatus.SC_405, "不支持该请求方法（"+ request.getMethod() +"）：" + e.getMessage());
         } catch (Exception ignore) {
         }
         return response;
