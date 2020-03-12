@@ -4,8 +4,28 @@
 - 静态、动态资源获取；
 
 - Cookie、Session、HTTP 长连接，及 Session 和 HTTP 长连接的定时清除；
-- 类似 Spring MVC 的注解式编程，如 `@RequestMapping` `@RequestParam` 等，方法中可以根据参数名从前台获取数据，可以传递对象，也支持级联属性；
+
+- 类似 Spring MVC 的注解式编程，如 `@RequestMapping` `@RequestParam` 等，方法中可以根据参数名从前台获取数据，可以传递对象，也支持级联属性，如：
+
+  ```java
+  // GET /page?pageSize=10&pageNum=1 HTTP/1.1
+  @RequestMapping("/page")
+  String page(@RequestParam(value="pageSize", defaultValue="10") Integer pageSize, Integer pageNum) {...}
+  
+  /**
+   * POST /login HTTP/1.1
+   * ...
+   * user.name=admin&user.passwd=admin&user.data.val=ok
+   * *******
+   * User 类：String name; String passwd; Data data;
+   * Data 类: String val;
+   */
+  @RequestMapping("/login", method = HttpMethod.POST)
+  String login(User user) {...} // 此时暂时不能加注解
+  ```
+
 - 方法可以返回一个字符串表示模板路径，模板使用正则实现，仅可以从 `request` 和 `session` 域中获取属性值，如 `${request.user.id}`；
+
 - 日志记录（使用 java.util.logging 内置日志记录器，自定义了日志格式）：服务器运行相关日志（server-n.log），HTTP 请求日志（access-n.log）。
 
 **API 汇总：**

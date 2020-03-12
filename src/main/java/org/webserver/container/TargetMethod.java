@@ -91,18 +91,22 @@ public class TargetMethod {
         // 填充参数
         for (int i = 0; i < realParameters.length; i++) {
             // @RequestParam
-            if (ReflectUtil.annotatedWith(parameters[i], RequestParam.class) &&
-                    ReflectUtil.isSimpleType(parameters[i].getType())) {
-                if (request.getParameter(parameters[i].getAnnotation(RequestParam.class).value()) != null) {
-                    // 参数的值
-                    realParameters[i] = ReflectUtil.cast(request.getParameter(
-                            parameters[i].getAnnotation(RequestParam.class).value()), parameters[i].getType());
-                } else if (!parameters[i].getAnnotation(RequestParam.class).defaultValue().equals("")) {
-                    // 注解提供的默认值
-                    realParameters[i] = ReflectUtil.cast(parameters[i].getAnnotation(RequestParam.class).defaultValue(), parameters[i].getType());
-                } else {
-                    // 空默认值
-                    realParameters[i] = ReflectUtil.defaultValue(parameters[i].getType());
+            if (ReflectUtil.annotatedWith(parameters[i], RequestParam.class)) {
+                if (ReflectUtil.isSimpleType(parameters[i].getType())) { // 简单类型的值
+                    if (request.getParameter(parameters[i].getAnnotation(RequestParam.class).value()) != null) {
+                        // 参数的值
+                        realParameters[i] = ReflectUtil.cast(request.getParameter(
+                                parameters[i].getAnnotation(RequestParam.class).value()), parameters[i].getType());
+                    } else if (!parameters[i].getAnnotation(RequestParam.class).defaultValue().equals("")) {
+                        // 注解提供的默认值
+                        realParameters[i] = ReflectUtil.cast(parameters[i].getAnnotation(RequestParam.class).defaultValue(), parameters[i].getType());
+                    } else {
+                        // 空默认值
+                        realParameters[i] = ReflectUtil.defaultValue(parameters[i].getType());
+                    }
+                } else { // Java Bean
+                    realParameters[i] = buildBeanFromRequest(request, parameters[i].getType(),
+                            parameters[i].getAnnotation(RequestParam.class).value() + ".");
                 }
             }
             // @RequestHeader
@@ -129,10 +133,16 @@ public class TargetMethod {
             else if (ReflectUtil.typeEquals(parameters[i], HttpSession.class)) {
                 realParameters[i] = request.getSession();
             }
+            // 简单类型，且参数名在HTTP请求中有对应值
+            else if (ReflectUtil.isSimpleType(parameters[i].getType())
+                    && request.getParameter(parameters[i].getName()) != null) {
+                realParameters[i] = ReflectUtil.cast(
+                        request.getParameter(parameters[i].getName()), parameters[i].getType());
+            }
             // JavaBean，支持级联赋值
             else if (ReflectUtil.isNotSimpleType(parameters[i].getType())) {
                 realParameters[i] = buildBeanFromRequest(request, parameters[i].getType(),
-                        parameters[i].getType().getSimpleName().toLowerCase() + ".");
+                        parameters[i].getName() + ".");
             }
         }
         return realParameters;
