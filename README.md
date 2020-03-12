@@ -21,7 +21,7 @@
    * Data 类: String val;
    */
   @RequestMapping("/login", method = HttpMethod.POST)
-  String login(User user) {...} // 此时暂时不能加注解
+  String login(User user) {...}
   ```
 
 - 方法可以返回一个字符串表示模板路径，模板使用正则实现，仅可以从 `request` 和 `session` 域中获取属性值，如 `${request.user.id}`；

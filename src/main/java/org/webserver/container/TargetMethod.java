@@ -134,8 +134,7 @@ public class TargetMethod {
                 realParameters[i] = request.getSession();
             }
             // 简单类型，且参数名在HTTP请求中有对应值
-            else if (ReflectUtil.isSimpleType(parameters[i].getType())
-                    && request.getParameter(parameters[i].getName()) != null) {
+            else if (ReflectUtil.isSimpleType(parameters[i].getType())) {
                 realParameters[i] = ReflectUtil.cast(
                         request.getParameter(parameters[i].getName()), parameters[i].getType());
             }
