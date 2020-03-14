@@ -61,9 +61,9 @@ public class ReflectUtil {
      * 类型处理器，仅处理简单类型，buildBeanFromRequest方法会递归处理
      */
     private static final Map<Class, Function<String, Object>> typeHandler = new HashMap<>();
-    private static final ThreadLocal<SimpleDateFormat> format = new ThreadLocal<>();
+    private static final ThreadLocal<SimpleDateFormat> format =
+            ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
     static {
-        format.set(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
         typeHandler.put(String.class, v -> v);
         typeHandler.put(int.class, Integer::valueOf);
         typeHandler.put(Integer.class, Integer::valueOf);
