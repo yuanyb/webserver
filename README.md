@@ -1,4 +1,7 @@
 # Java 实现的一个简单的基于 NIO 的多线程Web服务器
+
+
+
 ## 实现了
 
 - 静态、动态资源获取；
@@ -42,6 +45,39 @@ HttpSession
 Cookie
 HttpMethod
 ```
+
+
+
+## 类结构
+
+- webserver.BootStrap：启动类，读取配置文件，初始化日志记录器，并启动 webserver.connector.Server 类
+- webserver.connector：存放与网络连接相关的类
+  - Server：初始化服务器的各个组件
+  - Acceptor：监听客户端的连接请求，并将连接放入Poller中进行请求监听，守护线程
+  - Poller：保存与客户端的Socket连接，监听客户端的请求，多个守护线程
+  - SocketWrapper：客户端 SocketChannel 的包装器，封装了一些方法
+  - RequestProcessor：请求处理器，将请求放入内部的线程池中处理
+  - ExpiredConnectionCleaner：清理长时间为传输数据的Socket（HTTP长连接的定时清除）
+- webserver.container：存放容器类及相关的一些类和注解
+  - annotation：存放注解
+  - Container：容器类，保存 HttpSession 和 控制器中的响应方法，包含HttpSession的创建获取销毁的方法，对传过来的 HttpRequest 找到对应的响应方法执行 
+  - TargetMethod：对控制器中的响应方法的封装
+  - ControllerScanner：扫描 classpath 下被 `@Controller` 注解标记的控制器类
+- webserver.http：存放与HTTP相关的类
+  - request.HttpRequest
+  - request.HttpRequestParser：从请求数据中解析出 HttpRequest
+  - response.HttpResponse
+  - response.HttpStatus
+  - session.HttpSession
+  - session.ExpiredSessionCleaner：清理过期的HttpSessin
+  - Cookie
+  - HttpMethod
+- webserver.constant：存放一些常量
+  - ...
+- webserver.exception：自定义异常
+  - ...
+- webserver.util：工具类
+  - ...
 
 
 
