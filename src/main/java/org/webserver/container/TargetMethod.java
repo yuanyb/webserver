@@ -118,8 +118,14 @@ public class TargetMethod {
             // @CookieValue
             else if (ReflectUtil.annotatedWith(parameters[i], CookieValue.class) &&
                     ReflectUtil.typeEquals(parameters[i].getType(), String.class)) {
-                realParameters[i] = request.getCookie(
-                        parameters[i].getAnnotation(CookieValue.class).value());
+                /*realParameters[i] = request.getCookie(
+                        parameters[i].getAnnotation(CookieValue.class).value());*/
+                Cookie cookie = request.getCookie(parameters[i].getAnnotation(CookieValue.class).value());
+                if (cookie == null) {
+                    realParameters[i] = "";
+                } else {
+                    realParameters[i] = cookie.getValue();
+                }
             }
             // HttpRequest
             else if (ReflectUtil.typeEquals(parameters[i], HttpRequest.class)) {
